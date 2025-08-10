@@ -121,7 +121,10 @@ btnCapture.onclick = async () => {
 };
 
 btnUpload.onclick = async () => {
-  if (!lastImageDataUrl) { status('Tidak ada foto untuk diupload', true); return; }
+  if (!lastImageDataUrl) { 
+    status('Tidak ada foto untuk diupload', true); 
+    return; 
+  }
   status('Mengunggah ke server...');
   const payload = {
     image: lastImageDataUrl,
@@ -129,26 +132,23 @@ btnUpload.onclick = async () => {
     lng: lastLng,
     address: lastAddress,
     timestamp: new Date().toISOString(),
-    user: 'mobile-user' // ganti jika ada auth
+    user: 'mobile-user'
   };
   try {
     const resp = await fetch(APPS_SCRIPT_URL, {
       method: 'POST',
-      mode: 'no-cors', // NOTE: if you deploy Apps Script as "Anyone", use no-cors or configure CORS. For proper JSON response, configure CORS on Apps Script (advanced).
+      mode: 'cors',  // ini diubah dari no-cors ke cors
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    // If using no-cors we can't read the response, so assume ok
-    status('Upload dikirim. Jika deployment Apps Script mengizinkan CORS, akan menerima respon.');
+
+    const json = await resp.json(); // baca response JSON dari server
+    if (json.status === 'ok') {
+      status('Upload berhasil: ' + (json.message || ''));
+    } else {
+      status('Upload error: ' + (json.message || 'Unknown error'), true);
+    }
   } catch (e) {
     status('Upload gagal: ' + e.message, true);
   }
 };
-
-function status(msg, isError=false) {
-  statusDiv.textContent = msg;
-  statusDiv.style.color = isError ? 'red' : 'green';
-}
-</script>
-</body>
-</html>
