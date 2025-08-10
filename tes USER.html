@@ -1,0 +1,154 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>Photo Capture & Upload</title>
+  <style>
+    body{font-family: Arial; margin:12px;}
+    video, canvas { width:100%; max-width: 600px; border:1px solid #ccc; }
+    .controls { margin-top:8px; }
+    button { padding:8px 12px; margin-right:8px; }
+    #status { margin-top:8px; color:green; }
+  </style>
+</head>
+<body>
+  <h3>Ambil Foto (Browser) — Simple</h3>
+  <video id="video" autoplay playsinline></video>
+  <canvas id="canvas" style="display:none;"></canvas>
+
+  <div class="controls">
+    <button id="btnStart">Start Camera</button>
+    <button id="btnCapture">Ambil Foto</button>
+    <button id="btnUpload">Upload ke Drive</button>
+  </div>
+
+  <div id="info">
+    <p>Lokasi: <span id="loc">-</span></p>
+    <p>Alamat (opsional): <span id="address">-</span></p>
+  </div>
+
+  <div id="status"></div>
+
+<script>
+const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbxqLYSXsnWmsfWI4tb_6Dw2WdLkXhUk06yhJ88ow-FTi0hl-SP0Hq8dQwY0D0Ax41E/exec'; // ganti dengan URL web app
+// jika mau reverse geocode di client, masukkan Google Maps Geocoding API key di bawah (opsional)
+const GEOCODING_API_KEY = ''; // optional
+
+const video = document.getElementById('video');
+const canvas = document.getElementById('canvas');
+const btnStart = document.getElementById('btnStart');
+const btnCapture = document.getElementById('btnCapture');
+const btnUpload = document.getElementById('btnUpload');
+const locSpan = document.getElementById('loc');
+const addrSpan = document.getElementById('address');
+const statusDiv = document.getElementById('status');
+
+let lastImageDataUrl = null;
+let lastLat = null;
+let lastLng = null;
+let lastAddress = '';
+
+btnStart.onclick = async () => {
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio:false });
+    video.srcObject = stream;
+    status('Camera aktif');
+  } catch (e) {
+    status('Gagal akses kamera: ' + e.message, true);
+  }
+};
+
+btnCapture.onclick = async () => {
+  // ambil lokasi dulu
+  if (!navigator.geolocation) {
+    status('Geolocation tidak didukung', true);
+    return;
+  }
+  status('Mengambil lokasi...');
+  navigator.geolocation.getCurrentPosition(async (pos) => {
+    lastLat = pos.coords.latitude;
+    lastLng = pos.coords.longitude;
+    locSpan.textContent = `${lastLat.toFixed(6)}, ${lastLng.toFixed(6)}`;
+    status('Lokasi didapat. Meng-capture foto...');
+
+    // capture video frame to canvas
+    canvas.width = video.videoWidth;
+    canvas.height = video.videoHeight;
+    const ctx = canvas.getContext('2d');
+    ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+    // prepare watermark text
+    const timestamp = new Date().toLocaleString();
+    let address = '';
+    if (GEOCODING_API_KEY) {
+      // reverse geocode (optional)
+      const geourl = `https://maps.googleapis.com/maps/api/geocode/json?latlng=${lastLat},${lastLng}&key=${GEOCODING_API_KEY}`;
+      try {
+        const r = await fetch(geourl);
+        const j = await r.json();
+        if (j.status === 'OK' && j.results.length) {
+          address = j.results[0].formatted_address;
+        }
+      } catch (e) {
+        console.warn('Geocode failed', e);
+      }
+    }
+
+    lastAddress = address || `${lastLat.toFixed(5)}, ${lastLng.toFixed(5)}`;
+    addrSpan.textContent = lastAddress;
+
+    // draw semi-transparent rectangle + watermark
+    const rectHeight = Math.round(canvas.height * 0.08);
+    ctx.fillStyle = 'rgba(0,0,0,0.45)';
+    ctx.fillRect(0, canvas.height - rectHeight, canvas.width, rectHeight);
+
+    ctx.fillStyle = 'white';
+    ctx.font = `${Math.max(14, Math.round(canvas.width / 40))}px Sans-serif`;
+    ctx.fillText(timestamp, 10, canvas.height - rectHeight/2 + 6);
+    ctx.fillText(lastAddress, 10, canvas.height - rectHeight/2 + 28);
+
+    // optional small watermark right
+    ctx.textAlign = 'right';
+    ctx.fillText('©YourOrg', canvas.width - 10, canvas.height - rectHeight/2 + 6);
+
+    // get data URL
+    lastImageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+    status('Foto siap — silakan Upload');
+  }, (err) => {
+    status('Gagal ambil lokasi: ' + err.message, true);
+  }, { enableHighAccuracy:true, timeout:10000 });
+};
+
+btnUpload.onclick = async () => {
+  if (!lastImageDataUrl) { status('Tidak ada foto untuk diupload', true); return; }
+  status('Mengunggah ke server...');
+  const payload = {
+    image: lastImageDataUrl,
+    lat: lastLat,
+    lng: lastLng,
+    address: lastAddress,
+    timestamp: new Date().toISOString(),
+    user: 'mobile-user' // ganti jika ada auth
+  };
+  try {
+    const resp = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      mode: 'no-cors', // NOTE: if you deploy Apps Script as "Anyone", use no-cors or configure CORS. For proper JSON response, configure CORS on Apps Script (advanced).
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload)
+    });
+    // If using no-cors we can't read the response, so assume ok
+    status('Upload dikirim. Jika deployment Apps Script mengizinkan CORS, akan menerima respon.');
+  } catch (e) {
+    status('Upload gagal: ' + e.message, true);
+  }
+};
+
+function status(msg, isError=false) {
+  statusDiv.textContent = msg;
+  statusDiv.style.color = isError ? 'red' : 'green';
+}
+</script>
+</body>
+</html>
