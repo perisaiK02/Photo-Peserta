@@ -7,28 +7,32 @@ function doPost(e) {
     const address = e.parameter.address || '';
     const timestamp = e.parameter.timestamp || new Date().toISOString();
     const user = e.parameter.user || 'anonymous';
-
-    // Ambil file foto dan simpan ke Google Drive
-    const folder = DriveApp.getFolderById('18SzxY6cs_sL1Y2vVcQDPC-OXPeiXK1Fo'); // Ganti ID folder
+    
+    // Ambil folder Google Drive berdasarkan ID folder yang benar
+    const folder = DriveApp.getFolderById('18SzxY6cs_sL1Y2vVcQDPC-OXPeiXK1Fo'); // Ganti dengan ID folder kamu
+    
+    // Decode base64 image
     const contentType = 'image/jpeg';
     const bytes = Utilities.base64Decode(imageBase64.replace(/^data:image\/\w+;base64,/, ''));
     const blob = Utilities.newBlob(bytes, contentType, `photo_${timestamp}.jpg`);
+    
+    // Simpan file ke Drive
     const file = folder.createFile(blob);
-
-    // Simpan metadata di Spreadsheet
+    
+    // Buka spreadsheet dan sheet berdasarkan ID yang benar
     const sheet = SpreadsheetApp.openById('1mFwO2GqU4ZAdRUB9vOiovC49jCF2vym0bCS-Or4JcZI').getSheetByName('Sheet1');
+    
+    // Simpan metadata ke sheet
     sheet.appendRow([new Date(), user, lat, lng, address, file.getUrl()]);
-
-    // Respon ke frontend
+    
+    // Balikan response sukses (tanpa setHeader)
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'ok', fileUrl: file.getUrl() }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*');
-
+      .setMimeType(ContentService.MimeType.JSON);
+      
   } catch (err) {
     return ContentService
       .createTextOutput(JSON.stringify({ status: 'error', message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader('Access-Control-Allow-Origin', '*');
+      .setMimeType(ContentService.MimeType.JSON);
   }
 }
