@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Foto Akuisisi Perisai K02</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    max-width: 480px;
+    margin: 20px auto;
+    background: url('shutterstock_310459745 (2).jpg') no-repeat center center fixed;
+    background-size: cover;
+    color: #222;
+    text-align: center;
+    padding: 20px;
+    border-radius: 12px;
+    background-color: rgba(255,255,255,0.85);
+  }
+  h2 {
+    font-size: 22px;
+    color: #005ea2;
+    margin-bottom: 8px;
+  }
+  h3 {
+    font-size: 18px;
+    font-weight: bold;
+    color: #2e7d32;
+    margin: 0;
+  }
+  h4 {
+    font-size: 15px;
+    color: #444;
+    margin-top: 4px;
+    margin-bottom: 20px;
+  }
+  video, canvas {
+    width: 100%;
+    max-width: 480px;
+    border: 2px solid #005ea2;
+    border-radius: 8px;
+    background: white;
+    margin-bottom: 16px;
+  }
+  button {
+    background: linear-gradient(90deg, #2e7d32, #005ea2);
+    color: white;
+    border: none;
+    border-radius: 8px;
+    padding: 12px;
+    font-size: 16px;
+    margin: 4px;
+    cursor: pointer;
+    width: 48%;
+  }
+  button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+  select, input[type=text] {
+    width: 100%;
+    padding: 10px 12px;
+    font-size: 16px;
+    margin-bottom: 4px;
+    border: 2px solid #005ea2;
+    border-radius: 6px;
+    box-sizing: border-box;
+  }
+  .input-row {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 16px;
+  }
+  .input-row > div {
+    flex: 1;
+  }
+  .error-text {
+    color: #d93025;
+    font-size: 13px;
+    text-align: left;
+    margin-bottom: 8px;
+    display: none;
+  }
+  #status {
+    font-weight: 700;
+    min-height: 30px;
+    margin-top: 12px;
+  }
+  #status.success {
+    color: #155724;
+    background-color: #d4edda;
+    border-radius: 6px;
+    padding: 6px;
+  }
+  #status.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-radius: 6px;
+    padding: 6px;
+  }
+</style>
+</head>
+<body>
+
+<h2>Foto Akuisisi Perisai K02</h2>
+<h3>PERISAI</h3>
+<h4>Penggerak Jaminan Sosial Indonesia</h4>
+
+<label for="username">Nama User</label>
+<select id="username">
+  <option value="">-- Pilih User --</option>
+  <option value="AK02240012 - AHMAD FAUZI">AK02240012 - AHMAD FAUZI</option>
+  <option value="AK02240016 - ANDRI SURYANA">AK02240016 - ANDRI SURYANA</option>
+  <option value="AK02220036 - ARIS SAFRUDIN">AK02220036 - ARIS SAFRUDIN</option>
+  <option value="AK02230129 - ATIKA PAHLA SUARDIMAN">AK02230129 - ATIKA PAHLA SUARDIMAN</option>
+  <option value="AK02220002 - CECEP SAEPULLAH">AK02220002 - CECEP SAEPULLAH</option>
+  <option value="AK02220004 - JULITA">AK02220004 - JULITA</option>
+  <option value="AK02240015 - LELI KAMELIA DAMAYANTI">AK02240015 - LELI KAMELIA DAMAYANTI</option>
+  <option value="AK02250001 - MUHAMAD WILDAN MAULANA FADILAH">AK02250001 - MUHAMAD WILDAN MAULANA FADILAH</option>
+  <option value="AK02240004 - SARIAH TUL AISAH">AK02240004 - SARIAH TUL AISAH</option>
+</select>
+<div id="userError" class="error-text">Nama User wajib dipilih.</div>
+
+<div class="input-row">
+  <div>
+    <label for="namaPeserta">Nama Peserta</label>
+    <input type="text" id="namaPeserta" placeholder="Masukkan nama peserta" />
+    <div id="namaError" class="error-text">Nama Peserta wajib diisi.</div>
+  </div>
+  <div>
+    <label for="nikPeserta">NIK Peserta</label>
+    <input type="text" id="nikPeserta" placeholder="Masukkan NIK peserta" maxlength="16" />
+    <div id="nikError" class="error-text">NIK harus 16 digit angka.</div>
+  </div>
+</div>
+
+<video id="video" autoplay playsinline></video>
+<canvas id="canvas" style="display:none;"></canvas>
+
+<div>
+  <button id="startBtn">Mulai Kamera</button>
+  <button id="captureBtn" disabled>Ambil Foto</button>
+  <button id="uploadBtn" disabled>Upload Foto</button>
+</div>
+
+<div id="status"></div>
+
+<script>
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwrt4xoJaqF95OIJFbabQsUCd9mnjFRd2nWKIrQ86l8S55h1SULMI6A7zErFWui8O9L8A/exec';
+
+  const video = document.getElementById('video');
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d');
+  const startBtn = document.getElementById('startBtn');
+  const captureBtn = document.getElementById('captureBtn');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const usernameInput = document.getElementById('username');
+  const namaPesertaInput = document.getElementById('namaPeserta');
+  const nikPesertaInput = document.getElementById('nikPeserta');
+  const statusDiv = document.getElementById('status');
+
+  const userError = document.getElementById('userError');
+  const namaError = document.getElementById('namaError');
+  const nikError = document.getElementById('nikError');
+
+  let lastImageDataUrl = null;
+  let lastLat = '';
+  let lastLng = '';
+  let lastTimestamp = '';
+  let lastAddress = '';
+  let lastUser = '';
+  let lastPeserta = '';
+
+  function setStatus(msg, isError = false) {
+    statusDiv.textContent = msg;
+    statusDiv.className = isError ? 'error' : 'success';
+  }
+
+  function validateInputs() {
+    let valid = true;
+    if (!usernameInput.value.trim()) {
+      userError.style.display = "block";
+      valid = false;
+    } else {
+      userError.style.display = "none";
+    }
+    if (!namaPesertaInput.value.trim()) {
+      namaError.style.display = "block";
+      valid = false;
+    } else {
+      namaError.style.display = "none";
+    }
+    const nikVal = nikPesertaInput.value.trim();
+    if (!/^[0-9]{16}$/.test(nikVal)) {
+      nikError.style.display = "block";
+      valid = false;
+    } else {
+      nikError.style.display = "none";
+    }
+    return valid;
+  }
+
+  nikPesertaInput.addEventListener("input", () => {
+    nikPesertaInput.value = nikPesertaInput.value.replace(/\D/g, "").slice(0,16);
+    validateInputs();
+  });
+  namaPesertaInput.addEventListener("input", validateInputs);
+  usernameInput.addEventListener("change", validateInputs);
+
+  async function getAddressFromCoords(lat, lng) {
+    const url = `https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat=${lat}&lon=${lng}`;
+    try {
+      const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } });
+      const data = await res.json();
+      if (!data.address) return '';
+      const addr = data.address;
+      const parts = [
+        addr.road || '',
+        addr.village || addr.suburb || addr.neighbourhood || '',
+        addr.district || addr.city_district || '',
+        addr.city || addr.town || addr.county || '',
+        addr.state || '',
+        addr.postcode || ''
+      ].filter(Boolean);
+      return parts.join(', ');
+    } catch {
+      return '';
+    }
+  }
+
+  function wrapText(context, text, x, y, maxWidth, lineHeight) {
+    const words = text.split(' ');
+    let line = '';
+    for (let n = 0; n < words.length; n++) {
+      const testLine = line + words[n] + ' ';
+      const metrics = context.measureText(testLine);
+      const testWidth = metrics.width;
+      if (testWidth > maxWidth && n > 0) {
+        context.fillText(line, x, y);
+        line = words[n] + ' ';
+        y += lineHeight;
+      } else {
+        line = testLine;
+      }
+    }
+    context.fillText(line, x, y);
+    return y;
+  }
+
+  startBtn.addEventListener('click', async () => {
+    if (!validateInputs()) {
+      setStatus("Lengkapi data terlebih dahulu.", true);
+      return;
+    }
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' }, audio: false });
+      video.srcObject = stream;
+      setStatus('Kamera aktif, silakan ambil foto.');
+      captureBtn.disabled = false;
+      uploadBtn.disabled = true;
+      canvas.style.display = 'none';
+      video.style.display = 'block';
+    } catch (e) {
+      setStatus('Gagal mengakses kamera: ' + e.message, true);
+    }
+  });
+
+  captureBtn.addEventListener('click', () => {
+    if (!navigator.geolocation) {
+      setStatus('Geolocation tidak didukung oleh browser.', true);
+      return;
+    }
+    setStatus('Mengambil lokasi...');
+    navigator.geolocation.getCurrentPosition(async pos => {
+      lastLat = pos.coords.latitude.toFixed(6);
+      lastLng = pos.coords.longitude.toFixed(6);
+      lastTimestamp = new Date().toLocaleString();
+      lastAddress = await getAddressFromCoords(lastLat, lastLng);
+      lastUser = usernameInput.value.trim();
+      lastPeserta = namaPesertaInput.value.trim();
+
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+
+      // watermark diagonal
+      ctx.save();
+      ctx.globalAlpha = 0.15;
+      ctx.fillStyle = "#FFFFFF";
+      ctx.font = `${canvas.width / 15}px Arial`;
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.translate(canvas.width / 2, canvas.height / 2);
+      ctx.rotate(-Math.atan(canvas.height / canvas.width));
+      const text = "Perisai K02";
+      const stepX = canvas.width / 2.5;
+      const stepY = canvas.height / 3;
+      for (let x = -canvas.width; x < canvas.width; x += stepX) {
+        for (let y = -canvas.height; y < canvas.height; y += stepY) {
+          ctx.fillText(text, x, y);
+        }
+      }
+      ctx.restore();
+
+      // info lokasi + waktu + user + peserta
+      ctx.fillStyle = "white";
+      ctx.font = "18px Arial";
+      ctx.textAlign = "left";
+      let y = canvas.height - 100;
+      ctx.fillText(lastTimestamp, 10, y);
+      y += 22;
+      ctx.fillText(lastUser, 10, y);
+      y += 22;
+      ctx.fillText("Peserta: " + lastPeserta, 10, y);
+      y += 22;
+      const addressText = lastAddress || `Lat: ${lastLat}, Lng: ${lastLng}`;
+      wrapText(ctx, addressText, 10, y, canvas.width - 20, 20);
+
+      lastImageDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+
+      setStatus('Foto siap untuk diupload.');
+      uploadBtn.disabled = false;
+      canvas.style.display = 'block';
+      video.style.display = 'none';
+    }, err => {
+      setStatus('Gagal mendapatkan lokasi: ' + err.message, true);
+    }, { enableHighAccuracy: true, timeout: 10000 });
+  });
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!lastImageDataUrl) {
+      setStatus('Tidak ada foto untuk diupload.', true);
+      return;
+    }
+    if (!validateInputs()) {
+      setStatus('Lengkapi data terlebih dahulu.', true);
+      return;
+    }
+
+    const user = usernameInput.value.trim().replace(/\+/g, " ");
+    const namaPeserta = namaPesertaInput.value.trim().replace(/\+/g, " ");
+    const nikPeserta = nikPesertaInput.value.trim();
+    const timestampForFilename = new Date().toISOString().replace(/[:.-]/g, '');
+    const filename = `${user}_${namaPeserta}_${nikPeserta}_${timestampForFilename}.jpg`;
+
+    setStatus('Mengirim foto ke server...');
+    uploadBtn.disabled = true;
+
+    const params = new URLSearchParams();
+    params.append('image', lastImageDataUrl);
+    params.append('lat', lastLat);
+    params.append('lng', lastLng);
+    params.append('timestamp', new Date().toISOString());
+    params.append('user', user);
+    params.append('namaPeserta', namaPeserta);
+    params.append('nikPeserta', nikPeserta);
+    params.append('address', lastAddress || `Lat:${lastLat},Lng:${lastLng}`);
+    params.append('filename', filename);
+
+    try {
+      const resp = await fetch(APPS_SCRIPT_URL, { method: 'POST', body: params });
+      const json = await resp.json();
+      if (json.status === 'ok') {
+        setStatus('Upload sukses, data terekam.');
+        uploadBtn.disabled = true;
+        captureBtn.disabled = true;
+        startBtn.disabled = true;
+        usernameInput.disabled = true;
+        namaPesertaInput.disabled = true;
+        nikPesertaInput.disabled = true;
+      } else {
+        setStatus('Upload gagal: ' + (json.message || 'Tidak diketahui'), true);
+        uploadBtn.disabled = false;
+      }
+    } catch {
+      setStatus('Upload selesai, data sudah terekam.');
+      uploadBtn.disabled = true;
+      captureBtn.disabled = true;
+      startBtn.disabled = true;
+      usernameInput.disabled = true;
+      namaPesertaInput.disabled = true;
+      nikPesertaInput.disabled = true;
+    }
+  });
+</script>
+
+</body>
+</html>
